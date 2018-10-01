@@ -207,17 +207,14 @@ namespace TCore.StreamEx
 
             while (true)
             {
-                // byte b = BufferCurrent.Bytes[ib];
                 byte b;
 
                 SwapBuffer.ReadByteBufferState state = ReadByte(out b);
-                // Read
+                // after read, process the read then check the state...
 
                 if (b == 0x0a)
                 {
                     // we're done. If we were looking for it, great. if not, no matter, we're still done...
-                    // BufferCurrent.SetPos(ib + 1);
-                    // post read, no change (consume the byte)
                     int cbLineEndingAdjust = fLookingForLF ? 1 : 0;
 
                     // remember we don't want the line ending as part of the string we construct. Since ib hasn't been adjusted
@@ -230,9 +227,7 @@ namespace TCore.StreamEx
                 {
                     // was looking for a matching LF, but didn't find. must be a naked LF
                     // push back this character (or rather,just don't eat it)
-                    // BufferCurrent.SetPos(ib);
                     BufferCurrent.Unget();
-                    // post read, push back this character (seek back by 1)
 
                     // remember to chop off the LF
                     return Encoding.UTF8.GetString(BufferCurrent.Bytes, BufferCurrent.TokenStart, BufferCurrent.Cur - BufferCurrent.TokenStart - 1);
@@ -257,37 +252,6 @@ namespace TCore.StreamEx
                     // the next read will fill the buffer for us)
                     return Encoding.UTF8.GetString(BufferCurrent.Bytes, BufferCurrent.TokenStart, BufferCurrent.Cur - BufferCurrent.TokenStart);
                 }
-
-#if OLD
-                ib++;
-
-                // all this below should be handled in the read.
-                if (ib >= BufferCurrent.Lim)
-                {
-                    if (ibLineStart == 0)
-                    {
-                        // hmm, we have the entire buffer to ourselves, but no line ending was
-                        // found. just invent a break here
-                        return Encoding.UTF8.GetString(BufferCurrent.Bytes, ibLineStart, ib - ibLineStart);
-                        // the next time they call ReadLine, it will fill the next buffer
-                    }
-
-                    if (!SwapCurrentBuffer(ibLineStart))
-                    {
-                        // couldn't fill the next buffer, so we are out of space...just return what we have
-                        return Encoding.UTF8.GetString(BufferCurrent.Bytes, ibLineStart, ib - ibLineStart);
-                    }
-
-                    // otherwise, we are good to go.
-                    // the new buffer has all the stuff we already parsed between [ibLineStart and ib)
-                    // so rebase them all such that ibLineStart is now 0
-                    ib -= ibLineStart;
-                    ibLineStart = 0;
-
-                    if (ib >= BufferCurrent.Lim)
-                        throw new Exception("internal state failure");
-#endif
-            
             }
         }
 
