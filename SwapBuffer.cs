@@ -12,12 +12,12 @@ namespace TCore.StreamEx
     // ============================================================================
     public class SwapBuffer
     {
-        private byte[] m_rgb = new byte[1024];
+        private byte[] m_rgb;
         private int m_ibBufferCur = -1;
         private int m_ibBufferLim = -1;
         private readonly long m_ibFileLim;
         private readonly Stream m_stm;
-
+        private long m_lcbBufferAlloc;
 
         // this is the pinned seek position for tokens -- if we need to switch
         // to a new buffer, we will ensure that this token is moved into the new
@@ -38,8 +38,10 @@ namespace TCore.StreamEx
 
             create a new buffer on top of the given filestream
         ----------------------------------------------------------------------------*/
-        public SwapBuffer(Stream stm, long ibFileLim)
+        public SwapBuffer(Stream stm, long ibFileLim, long lcbBuffer = 1024)
         {
+            m_rgb = new byte[lcbBuffer];
+            m_lcbBufferAlloc = lcbBuffer;
             m_stm = stm;
             m_ibFileLim = ibFileLim;
         }
@@ -58,7 +60,7 @@ namespace TCore.StreamEx
             if (m_stm.Position >= m_ibFileLim)
                 return false;
 
-            long cbToRead = Math.Min(1024 - ibStart, m_ibFileLim - m_stm.Position);
+            long cbToRead = Math.Min(m_lcbBufferAlloc - ibStart, m_ibFileLim - m_stm.Position);
 
             if (cbToRead != (int)cbToRead)
                 throw new Exception("read overflow");
