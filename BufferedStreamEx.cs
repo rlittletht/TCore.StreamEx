@@ -7,21 +7,7 @@ using System.Threading.Tasks;
 
 namespace TCore.StreamEx
 {
-    public class PinnedTokenExceedsBufferLength : Exception
-    {
-        public PinnedTokenExceedsBufferLength() { }
-        public PinnedTokenExceedsBufferLength(string msg) : base(msg) { }
-        public PinnedTokenExceedsBufferLength(string msg, Exception inner) : base(msg, inner) { }
-    }
-
-    public class SourceDataExhausted : Exception
-    {
-        public SourceDataExhausted() { }
-        public SourceDataExhausted(string msg) : base(msg) { }
-        public SourceDataExhausted(string msg, Exception inner) : base(msg, inner) { }
-    }
-
-    public class BufferedStreamEx
+    public partial class BufferedStreamEx
     {
         private Stream m_stm;
         private long m_ibFileStart;
