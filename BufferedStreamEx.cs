@@ -213,12 +213,7 @@ namespace TCore.StreamEx
 
             state = BufferCurrent.Read(out b);
 
-            //if (BufferCurrent.NeedsFilled )
-            //{
-                //return FillBuffer();
-            //}
-
-            return StreamEx.SwapBuffer.ReadByteBufferState.Succeeded;
+            return state;
         }
 
         /*----------------------------------------------------------------------------
