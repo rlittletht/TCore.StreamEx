@@ -156,6 +156,11 @@ namespace TCore.StreamEx
         [TestCase("&#123;", 0, 6, 6, new string[] { "&#123;" }, new string[] {"", null, ""}, 6, null)]
         [TestCase("01&#123;", 0, 8, 8, new string[] { "&#123;" }, new string[] { "01", null, "" }, 8, null)]
         [TestCase("01&#123;89", 0, 10, 10, new string[] { "&#123;" }, new string[] { "01", null, "89" }, 10, null)]
+        [TestCase("01&#456789", 0, 10, 10, new string[] { }, new string[] { "01&#456789" }, 10, null)]
+        [TestCase("01&#4a678a", 0, 10, 10, new string[] { }, new string[] { "01&#4a678a" }, 10, null)]
+        [TestCase("01&#aa678a", 0, 10, 10, new string[] { }, new string[] { "01&#aa678a" }, 10, null)]
+        [TestCase("01&aaa678a", 0, 10, 10, new string[] { }, new string[] { "01&aaa678a" }, 10, null)]
+        [TestCase("&#123a&#123;", 0, 12, 12, new string[] { "&#123;" }, new string[] { "&#123a", null, "" }, 12, null)]
         [Test]
         public void TestReadNCR(string sDebugStream, long ibStart, long ibLim, long lcbSwapBuffer,
             string[] rgsNCRExpected, string[] rgsNonNCRExpected, long ibSeekExpected, string sExpectedException)

@@ -298,7 +298,7 @@ namespace TCore.StreamEx
                 throw new Exception("no pinned token to copy");
 
             byte[] rgb = new byte[BufferCurrent.Cur - BufferCurrent.TokenStart];
-            BufferCurrent.Bytes.CopyTo(rgb, 0);
+            Buffer.BlockCopy(BufferCurrent.Bytes, BufferCurrent.TokenStart, rgb, 0, BufferCurrent.Cur - BufferCurrent.TokenStart);
 
             return rgb;
         }
@@ -327,7 +327,10 @@ namespace TCore.StreamEx
                 {
                     state = ReadByte(out b);
                     if (b >= '0' && b <= '9')
+                    {
                         fNeedSingleDigit = false;
+                        continue;
+                    }
 
                     if (b == ';')
                     {
@@ -336,6 +339,8 @@ namespace TCore.StreamEx
 
                         break;
                     }
+
+                    break;  // not a valid NCR
                 }
             }
 
