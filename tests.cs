@@ -153,14 +153,31 @@ namespace TCore.StreamEx
         // buffer exposure is operable without readline. (readline should really just be a fancy token parser)
 
         // the token syntax is &#NNN;
-        [TestCase("&#123;", 0, 6, 6, new string[] { "&#123;" }, new string[] {"", null, ""}, 6, null)]
-        [TestCase("01&#123;", 0, 8, 8, new string[] { "&#123;" }, new string[] { "01", null, "" }, 8, null)]
+        [TestCase("&#123;", 0, 6, 10, new string[] { "&#123;" }, new string[] {"", null, ""}, 6, null)]
+        [TestCase("01&#123;", 0, 8, 10, new string[] { "&#123;" }, new string[] { "01", null, "" }, 8, null)]
         [TestCase("01&#123;89", 0, 10, 10, new string[] { "&#123;" }, new string[] { "01", null, "89" }, 10, null)]
         [TestCase("01&#456789", 0, 10, 10, new string[] { }, new string[] { "01&#456789" }, 10, null)]
         [TestCase("01&#4a678a", 0, 10, 10, new string[] { }, new string[] { "01&#4a678a" }, 10, null)]
         [TestCase("01&#aa678a", 0, 10, 10, new string[] { }, new string[] { "01&#aa678a" }, 10, null)]
         [TestCase("01&aaa678a", 0, 10, 10, new string[] { }, new string[] { "01&aaa678a" }, 10, null)]
-        [TestCase("&#123a&#123;", 0, 12, 12, new string[] { "&#123;" }, new string[] { "&#123a", null, "" }, 12, null)]
+        [TestCase("&#123a&#123;", 0, 12, 10, new string[] { "&#123;" }, new string[] { "&#123a", null, "" }, 12, null)]
+        [TestCase("&&#123;", 0, 7, 10, new string[] { "&#123;" }, new string[] { "&", null, "" }, 7, null)]
+        [TestCase("&#&#123;", 0, 8, 10, new string[] { "&#123;" }, new string[] { "&#", null, "" }, 8, null)]
+        [TestCase("&#1&#123;", 0, 9, 10, new string[] { "&#123;" }, new string[] { "&#1", null, "" }, 9, null)]
+        [TestCase("a&&#123;", 0, 8, 10, new string[] { "&#123;" }, new string[] { "a&", null, "" }, 8, null)]
+        [TestCase("a&#&#123;", 0, 9, 10, new string[] { "&#123;" }, new string[] { "a&#", null, "" }, 9, null)]
+        [TestCase("a&#1&#123;", 0, 10, 10, new string[] { "&#123;" }, new string[] { "a&#1", null, "" }, 10, null)]
+        [TestCase("a&&#123;a", 0, 9, 10, new string[] { "&#123;" }, new string[] { "a&", null, "a" }, 9, null)]
+        [TestCase("a&#&#123;a", 0, 10, 10, new string[] { "&#123;" }, new string[] { "a&#", null, "a" }, 10, null)]
+        [TestCase("a&#1&#123;a", 0, 11, 10, new string[] { "&#123;" }, new string[] { "a&#1", null, "a" }, 11, null)]
+        [TestCase("&&#123;a", 0, 8, 10, new string[] { "&#123;" }, new string[] { "&", null, "a" }, 8, null)]
+        [TestCase("&#&#123;a", 0, 9, 10, new string[] { "&#123;" }, new string[] { "&#", null, "a" }, 9, null)]
+        [TestCase("&#1&#123;a", 0, 10, 10, new string[] { "&#123;" }, new string[] { "&#1", null, "a" }, 10, null)]
+        // if we get too long of a token, we should just seek back and treat it as text
+        [TestCase("&#23456789;foo", 0, 14, 10, new string[] { }, new string[] { "&#23456789;foo" }, 14, null)]
+        [TestCase("&#2345678;afoo", 0, 14, 10, new string[] { "&#2345678;" }, new string[] { "", null, "afoo" }, 14, null)]
+        [TestCase("aaaa&#2345678;afoo", 0, 18, 10, new string[] { "&#2345678;" }, new string[] { "aaaa", null, "afoo" }, 18, null)]
+        [TestCase("aaaa&#23456789;foo", 0, 18, 10, new string[] { }, new string[] { "aaaa&#23456789;foo" }, 18, null)]
         [Test]
         public void TestReadNCR(string sDebugStream, long ibStart, long ibLim, long lcbSwapBuffer,
             string[] rgsNCRExpected, string[] rgsNonNCRExpected, long ibSeekExpected, string sExpectedException)
