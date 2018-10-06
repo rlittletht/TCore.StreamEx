@@ -1,4 +1,5 @@
 ﻿using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -154,6 +155,43 @@ namespace TCore.StreamEx
         {
             BufferCurrent.ResetPinnedToken();
         }
+
+        /*----------------------------------------------------------------------------
+        	%%Function: FillBuffer
+        	%%Qualified: TCore.StreamEx.BufferedStreamEx.FillBuffer
+        	%%Contact: rlittle
+        	
+            Fill the current buffer (swap, then fill)
+        ----------------------------------------------------------------------------*/
+        SwapBuffer.ReadByteBufferState FillBuffer()
+        {
+            if (BufferCurrent.TokenStart == 0)
+            {
+                return StreamEx.SwapBuffer.ReadByteBufferState.PinnedTokenExceedsBufferLength;
+
+                // hmm, we have the entire buffer to ourselves, but no line ending was
+                // found. just invent a break here
+                // return Encoding.UTF8.GetString(BufferCurrent.Bytes, ibLineStart, ib - ibLineStart);
+                // the next time they call ReadLine, it will fill the next buffer
+            }
+
+            if (!SwapCurrentBuffer())
+            {
+                // couldn't fill the next buffer, so we are out of space...just return what we have
+                return StreamEx.SwapBuffer.ReadByteBufferState.SourceDataExhausted;
+                // return Encoding.UTF8.GetString(BufferCurrent.Bytes, ibLineStart, ib - ibLineStart);
+            }
+
+            // otherwise, we are good to go.
+            // the new buffer has all the stuff we already parsed between [ibLineStart and ib)
+            // so rebase them all such that ibLineStart is now 0
+
+            if (BufferCurrent.Cur >= BufferCurrent.Lim)
+                throw new Exception("internal state failure");
+
+            return StreamEx.SwapBuffer.ReadByteBufferState.Succeeded;
+        }
+
         /*----------------------------------------------------------------------------
         	%%Function: ReadByte
         	%%Qualified: TCore.StreamEx.BufferedStreamEx.ReadByte
@@ -162,35 +200,22 @@ namespace TCore.StreamEx
         ----------------------------------------------------------------------------*/
         SwapBuffer.ReadByteBufferState ReadByte(out byte b)
         {
-            SwapBuffer.ReadByteBufferState state = BufferCurrent.Read(out b);
+            b = 0;
+            SwapBuffer.ReadByteBufferState state;
 
+            // if the buffer needs filled, then let's fill it
             if (BufferCurrent.NeedsFilled)
             {
-                if (BufferCurrent.TokenStart == 0)
-                {
-                    return StreamEx.SwapBuffer.ReadByteBufferState.PinnedTokenExceedsBufferLength;
+                state = FillBuffer();
+                if (state != SwapBuffer.ReadByteBufferState.Succeeded)
+                    return state;
+            }
 
-                    // hmm, we have the entire buffer to ourselves, but no line ending was
-                    // found. just invent a break here
-                    // return Encoding.UTF8.GetString(BufferCurrent.Bytes, ibLineStart, ib - ibLineStart);
-                    // the next time they call ReadLine, it will fill the next buffer
-                }
+            state = BufferCurrent.Read(out b);
 
-                if (!SwapCurrentBuffer())
-                {
-                    // couldn't fill the next buffer, so we are out of space...just return what we have
-                    return StreamEx.SwapBuffer.ReadByteBufferState.SourceDataExhausted;
-                    // return Encoding.UTF8.GetString(BufferCurrent.Bytes, ibLineStart, ib - ibLineStart);
-                }
-
-                // otherwise, we are good to go.
-                // the new buffer has all the stuff we already parsed between [ibLineStart and ib)
-                // so rebase them all such that ibLineStart is now 0
-
-                if (BufferCurrent.Cur >= BufferCurrent.Lim)
-                    throw new Exception("internal state failure");
-
-                return StreamEx.SwapBuffer.ReadByteBufferState.Succeeded;
+            if (BufferCurrent.NeedsFilled )
+            {
+                return FillBuffer();
             }
 
             return StreamEx.SwapBuffer.ReadByteBufferState.Succeeded;
@@ -271,5 +296,66 @@ namespace TCore.StreamEx
             }
         }
 
+        private byte[] RgbCopyPinnedToken()
+        {
+            if (!BufferCurrent.HasPinnedToken)
+                throw new Exception("no pinned token to copy");
+
+            byte[] rgb = new byte[BufferCurrent.Cur - BufferCurrent.TokenStart];
+            BufferCurrent.Bytes.CopyTo(rgb, 0);
+
+            return rgb;
+        }
+
+        /*----------------------------------------------------------------------------
+        	%%Function: ReadNCR
+        	%%Qualified: TCore.StreamEx.BufferedStreamEx.ReadNCR
+        	%%Contact: rlittle
+        	
+            assumes we just read a "&"
+        ----------------------------------------------------------------------------*/
+        public bool ReadNCR(out byte[] rgbOut, out string sNCR)
+        {
+            PinTokenStartRelative(-1);
+            byte b;
+            bool fValidNCR = false;
+
+            // look for the #
+            SwapBuffer.ReadByteBufferState state = ReadByte(out b);
+
+            if (b == '#')
+            {
+                bool fNeedSingleDigit = true;
+
+                while (state == SwapBuffer.ReadByteBufferState.Succeeded)
+                {
+                    state = ReadByte(out b);
+                    if (b >= '0' && b <= '9')
+                        fNeedSingleDigit = false;
+
+                    if (b == ';')
+                    {
+                        if (fNeedSingleDigit == false)
+                            fValidNCR = true;
+
+                        break;
+                    }
+                }
+            }
+
+            if (!fValidNCR)
+            {
+                rgbOut = RgbCopyPinnedToken();
+                sNCR = null;
+                ResetPinnedToken();
+                return false;   // didn't get an NCR
+            }
+
+            // we have a valid NCR. 
+            sNCR =  Encoding.UTF8.GetString(BufferCurrent.Bytes, BufferCurrent.TokenStart, BufferCurrent.Cur - BufferCurrent.TokenStart);
+            rgbOut = null;
+            ResetPinnedToken();
+            return true;
+        }
     }
 }

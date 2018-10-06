@@ -1,6 +1,7 @@
 ﻿
 
 using System;
+using System.Text;
 using System.Xml;
 using NUnit.Framework;
 using TCore.Debug;
@@ -147,7 +148,73 @@ namespace TCore.StreamEx
                 t();
         }
 
+        // This test doesn't test boundary spanning exhaustively, swapping, etc -- this is all testing with readline.
+        // this just tests some basic token identification and parsing to ensure that the underlying
+        // buffer exposure is operable without readline. (readline should really just be a fancy token parser)
 
+        // the token syntax is &#NNN;
+        [TestCase("&#123;", 0, 6, 6, new string[] { "&#123;" }, new string[] {"", null, ""}, 6, null)]
+        [TestCase("01&#123;", 0, 8, 8, new string[] { "&#123;" }, new string[] { "01", null, "" }, 8, null)]
+        [TestCase("01&#123;89", 0, 10, 10, new string[] { "&#123;" }, new string[] { "01", null, "89" }, 10, null)]
+        [Test]
+        public void TestReadNCR(string sDebugStream, long ibStart, long ibLim, long lcbSwapBuffer,
+            string[] rgsNCRExpected, string[] rgsNonNCRExpected, long ibSeekExpected, string sExpectedException)
+        {
+            DebugStream stm = DebugStream.StmCreateFromString(sDebugStream + "aaaa\n");
+            BufferedStreamEx stmx = new BufferedStreamEx(stm, ibStart, ibLim, lcbSwapBuffer);
+
+            TestDelegate t = () =>
+            {
+                // to do this test, we will construct the string before and after NCRs. a null
+                // in the expected string is where an NCR is expected.
+                StringBuilder sb = new StringBuilder();
+                byte b;
+                int iNonNCR = 0;
+                int iNCR = 0;
+
+                while (stmx.ReadByte(out b) != SwapBuffer.ReadByteBufferState.SourceDataExhausted)
+                {
+                    if (b != '&')
+                    {
+                        sb.Append((char) b);
+                        continue;
+                    }
+
+                    // read the possible NCR
+                    byte[] rgbRejectedNCR;
+                    string sAcceptedNCR;
+
+                    if (!stmx.ReadNCR(out rgbRejectedNCR, out sAcceptedNCR))
+                    {
+                        // just append this to the string and continue
+                        foreach (byte bRejected in rgbRejectedNCR)
+                            sb.Append((char) bRejected);
+
+                        continue;
+                    }
+
+                    // we have an NCR!
+                    // confirm we match the before NCR, the null placeholder for the NCR, and the NCR
+                    
+                    Assert.AreEqual(rgsNonNCRExpected[iNonNCR++], sb.ToString());
+                    Assert.AreEqual(rgsNonNCRExpected[iNonNCR++], null);   // there should be a null
+                    Assert.AreEqual(rgsNCRExpected[iNCR++], sAcceptedNCR);
+                    sb.Clear();
+                    // and continue
+                }
+
+                // at this point there can't be any NCR's
+                Assert.AreEqual(rgsNCRExpected.Length, iNCR);
+                Assert.AreEqual(rgsNonNCRExpected[iNonNCR], sb.ToString());
+
+                Assert.AreEqual(ibSeekExpected, stmx.Position());
+            };
+
+            if (sExpectedException != null)
+                RunTestExpectingException(t, sExpectedException);
+            else
+                t();
+        }
     }
 
 }
