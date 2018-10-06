@@ -176,25 +176,23 @@ namespace TCore.StreamEx
                 byte b;
                 int iNonNCR = 0;
                 int iNCR = 0;
+                bool fSkipNextNCRStart = false; // this means we have tried this &, and its not an NCR
 
                 while (stmx.ReadByte(out b) != SwapBuffer.ReadByteBufferState.SourceDataExhausted)
                 {
-                    if (b != '&')
+                    if (fSkipNextNCRStart || b != '&')
                     {
                         sb.Append((char) b);
+                        fSkipNextNCRStart = false;
                         continue;
                     }
 
                     // read the possible NCR
-                    byte[] rgbRejectedNCR;
                     string sAcceptedNCR;
 
-                    if (!stmx.ReadNCR(out rgbRejectedNCR, out sAcceptedNCR))
+                    if (!stmx.ReadNCR(out sAcceptedNCR))
                     {
-                        // just append this to the string and continue
-                        foreach (byte bRejected in rgbRejectedNCR)
-                            sb.Append((char) bRejected);
-
+                        fSkipNextNCRStart = true;
                         continue;
                     }
 

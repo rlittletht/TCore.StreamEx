@@ -309,8 +309,15 @@ namespace TCore.StreamEx
         	%%Contact: rlittle
         	
             assumes we just read a "&"
+
+            because we are pinning the token starting at &, if we determine that this
+            isn't an NCR, then we can just reset the read location to the start and
+            let the caller continue (we will return false).
+
+            it is the caller's responsibility to NOT try to parse this & again as an
+            NCR.
         ----------------------------------------------------------------------------*/
-        public bool ReadNCR(out byte[] rgbOut, out string sNCR)
+        public bool ReadNCR(out string sNCR)
         {
             PinTokenStartRelative(-1);
             byte b;
@@ -346,15 +353,14 @@ namespace TCore.StreamEx
 
             if (!fValidNCR)
             {
-                rgbOut = RgbCopyPinnedToken();
-                sNCR = null;
+                BufferCurrent.SetPos(BufferCurrent.TokenStart);
                 ResetPinnedToken();
-                return false;   // didn't get an NCR
+                sNCR = null;
+                return false;
             }
 
             // we have a valid NCR. 
             sNCR =  Encoding.UTF8.GetString(BufferCurrent.Bytes, BufferCurrent.TokenStart, BufferCurrent.Cur - BufferCurrent.TokenStart);
-            rgbOut = null;
             ResetPinnedToken();
             return true;
         }
