@@ -3,6 +3,7 @@
 using System;
 using System.Dynamic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using NUnit.Framework;
 
@@ -49,6 +50,43 @@ namespace TCore.Debug
                     m_ibStreamMac = ibStart;
                 }
             }
+        }
+
+        /*----------------------------------------------------------------------------
+        	%%Function: StmCreateFromString
+        	%%Qualified: TCore.Debug.DebugStream.StmCreateFromString
+        	%%Contact: rlittle
+        	
+            it turns out, writing a string to a file in .net isn't as simple as you 
+            would think. The strings are unicode, and you were probably thinking
+            about just plain ascii. so, this will create a stream the way you think
+            it would (converting the ascii to bytes, and encoding \n as CRLF
+            (0x0d0x0a)
+        ----------------------------------------------------------------------------*/
+        public static DebugStream StmCreateFromString(string s)
+        {
+            DebugStream stm = new DebugStream();
+
+            foreach (char ch in s)
+            {
+                switch (ch)
+                {
+                    case '\n':
+                        stm.Write(new byte[] {0x0d, 0x0a}, 0, 2);
+                        break;
+                    case (char) 0x240d:
+                        stm.Write(new byte[] {0x0d}, 0, 1);
+                        break;
+                    case (char) 0x240a:
+                        stm.Write(new byte[] {0x0a}, 0, 1);
+                        break;
+                    default:
+                        stm.WriteByte((byte) ch);
+                        break;
+                }
+            }
+
+            return stm;
         }
 
         public void WriteTestDataAt(long ibTestStart, byte[] rgbWrite)
@@ -522,6 +560,27 @@ namespace TCore.Debug
             Assert.AreEqual(rgbWrite, rgbRead);
         }
 
+        [TestCase(" a", new byte[] {(byte) ' ', (byte) 'a'})]
+        [TestCase("a", new byte[] { (byte)'a' })]
+        [TestCase("\n", new byte[] { 0x0d, 0x0a })]
+        [TestCase("a\n", new byte[] { (byte)'a', 0x0d, 0x0a })]
+        [TestCase("\na", new byte[] { 0x0d, 0x0a, (byte)'a' })]
+        [TestCase("\na\n", new byte[] { 0x0d, 0x0a, (byte)'a', 0x0d, 0x0a })]
+        [TestCase("\n\n", new byte[] { 0x0d, 0x0a, 0x0d, 0x0a })]
+        [TestCase("\n\t\n", new byte[] { 0x0d, 0x0a, 0x09, 0x0d, 0x0a })]
+        [TestCase("\x32", new byte[] { 0x32 })]
+        [Test]
+        public static void TestStmCreateFromString(string sIn, byte[] rgbExpected)
+        {
+            DebugStream stm = StmCreateFromString(sIn);
 
+            stm.Seek(0, SeekOrigin.Begin);
+            Assert.AreEqual(rgbExpected.Length, stm.Length);
+
+            byte[] rgbRead = new byte[rgbExpected.Length];
+            stm.Read(rgbRead, 0, rgbExpected.Length);
+
+            Assert.AreEqual(rgbExpected, rgbRead);
+        }
     }
 }

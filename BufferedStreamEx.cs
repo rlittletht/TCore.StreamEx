@@ -44,6 +44,22 @@ namespace TCore.StreamEx
         }
 
         /*----------------------------------------------------------------------------
+        	%%Function: BufferedStreamEx
+        	%%Qualified: TCore.StreamEx.BufferedStreamEx.BufferedStreamEx
+        	%%Contact: rlittle
+        	
+        ----------------------------------------------------------------------------*/
+        public BufferedStreamEx(Stream stm, long ibFileStart, long ibFileLim, long cbSwapBuffer = 1024)
+        {
+            m_stm = stm;
+            m_ibFileStart = ibFileStart;
+            m_ibFileLim = ibFileLim;
+            m_stm.Seek(m_ibFileStart, SeekOrigin.Begin);
+            m_bufferMain = new SwapBuffer(m_stm, ibFileLim, cbSwapBuffer);
+            m_bufferSwap = new SwapBuffer(m_stm, ibFileLim, cbSwapBuffer);
+        }
+
+        /*----------------------------------------------------------------------------
             %%Function: Position
             %%Qualified: TCore.ListenAz.Stage2.BufferedStreamEx.Position
             %%Contact: rlittle
@@ -127,6 +143,18 @@ namespace TCore.StreamEx
         }
 
         /*----------------------------------------------------------------------------
+        	%%Function: ResetPinnedToken
+        	%%Qualified: TCore.StreamEx.BufferedStreamEx.ResetPinnedToken
+        	%%Contact: rlittle
+            
+            we are no longer pinning a token. often done at the start of reading a 
+            line (or while we are looking for the start of a token)
+        ----------------------------------------------------------------------------*/
+        public void ResetPinnedToken()
+        {
+            BufferCurrent.ResetPinnedToken();
+        }
+        /*----------------------------------------------------------------------------
         	%%Function: ReadByte
         	%%Qualified: TCore.StreamEx.BufferedStreamEx.ReadByte
         	%%Contact: rlittle
@@ -179,6 +207,8 @@ namespace TCore.StreamEx
         ----------------------------------------------------------------------------*/
         public string ReadLine()
         {
+            ResetPinnedToken();
+
             if (BufferCurrent.Cur >= BufferCurrent.Lim)
             {
                 if (!SwapCurrentBuffer()) // nothing to preserve, just fill the buffer
@@ -201,7 +231,7 @@ namespace TCore.StreamEx
                 if (b == 0x0a)
                 {
                     // we're done. If we were looking for it, great. if not, no matter, we're still done...
-                    int cbLineEndingAdjust = fLookingForLF ? 1 : 0;
+                    int cbLineEndingAdjust = fLookingForLF ? 2 : 1;
 
                     // remember we don't want the line ending as part of the string we construct. Since ib hasn't been adjusted
                     // for this character, the only thing we have to worry about is if there was a leading CR
