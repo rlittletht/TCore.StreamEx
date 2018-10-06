@@ -198,7 +198,7 @@ namespace TCore.StreamEx
         	%%Contact: rlittle
         	
         ----------------------------------------------------------------------------*/
-        SwapBuffer.ReadByteBufferState ReadByte(out byte b)
+        public SwapBuffer.ReadByteBufferState ReadByte(out byte b)
         {
             b = 0;
             SwapBuffer.ReadByteBufferState state;
