@@ -213,10 +213,10 @@ namespace TCore.StreamEx
 
             state = BufferCurrent.Read(out b);
 
-            if (BufferCurrent.NeedsFilled )
-            {
-                return FillBuffer();
-            }
+            //if (BufferCurrent.NeedsFilled )
+            //{
+                //return FillBuffer();
+            //}
 
             return StreamEx.SwapBuffer.ReadByteBufferState.Succeeded;
         }
@@ -253,6 +253,21 @@ namespace TCore.StreamEx
                 SwapBuffer.ReadByteBufferState state = ReadByte(out b);
                 // after read, process the read then check the state...
 
+                // otherwise, keep going forward
+                if (state == StreamEx.SwapBuffer.ReadByteBufferState.PinnedTokenExceedsBufferLength
+                    || state == StreamEx.SwapBuffer.ReadByteBufferState.SourceDataExhausted)
+                {
+                    // hmm, if we got PinnedTokenExceedsBufferLength, then we have the entire buffer
+                    // to ourselves, but no line ending was found. just invent a break here
+
+                    // if we got SourceDataExhausted, then we couldn't fill the next buffer, so we are
+                    // out of space...just return what we have
+
+                    // in either case , we do the same thing (and if we are beyond the end of the buffer
+                    // the next read will fill the buffer for us)
+                    return Encoding.UTF8.GetString(BufferCurrent.Bytes, BufferCurrent.TokenStart, BufferCurrent.Cur - BufferCurrent.TokenStart);
+                }
+
                 if (b == 0x0a)
                 {
                     // we're done. If we were looking for it, great. if not, no matter, we're still done...
@@ -279,20 +294,6 @@ namespace TCore.StreamEx
                     fLookingForLF = true;
                 }
 
-                // otherwise, keep going forward
-                if (state == StreamEx.SwapBuffer.ReadByteBufferState.PinnedTokenExceedsBufferLength
-                    || state == StreamEx.SwapBuffer.ReadByteBufferState.SourceDataExhausted)
-                {
-                    // hmm, if we got PinnedTokenExceedsBufferLength, then we have the entire buffer
-                    // to ourselves, but no line ending was found. just invent a break here
-
-                    // if we got SourceDataExhausted, then we couldn't fill the next buffer, so we are
-                    // out of space...just return what we have
-
-                    // in either case , we do the same thing (and if we are beyond the end of the buffer
-                    // the next read will fill the buffer for us)
-                    return Encoding.UTF8.GetString(BufferCurrent.Bytes, BufferCurrent.TokenStart, BufferCurrent.Cur - BufferCurrent.TokenStart);
-                }
             }
         }
 
